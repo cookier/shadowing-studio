@@ -2,7 +2,13 @@
 <html lang="zh-CN">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <meta name="theme-color" content="#2563eb" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Shadowing Studio" />
+        <link rel="manifest" href="./manifest.json" />
+        <link rel="apple-touch-icon" href="./icon-192.png" />
         <title>Shadowing Studio Pro - Minimalist Edition</title>
         <style>
             :root {
@@ -21,6 +27,107 @@
                 padding: 20px;
                 margin: 0;
                 transition: background 0.4s;
+                min-height: 100vh;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+            }
+
+            /* 移动端优化 */
+            @media (max-width: 768px) {
+                body {
+                    padding: 10px;
+                }
+                
+                .container {
+                    padding: 20px;
+                    border-radius: 20px;
+                }
+                
+                .controls {
+                    flex-wrap: wrap;
+                    gap: 8px;
+                }
+                
+                .btn-main {
+                    padding: 14px 30px;
+                    min-width: 120px;
+                    font-size: 16px;
+                }
+                
+                .btn-circle {
+                    width: 48px;
+                    height: 48px;
+                    font-size: 1.2rem;
+                }
+                
+                .sentence-text {
+                    font-size: 1rem;
+                }
+                
+                .view-viewport {
+                    height: calc(var(--line-height) * 4);
+                }
+                
+                .settings-bar {
+                    grid-template-columns: 1fr;
+                    gap: 15px;
+                }
+            }
+
+            /* 触摸设备优化 */
+            @media (hover: none) and (pointer: coarse) {
+                .sentence-row:active {
+                    background: rgba(255, 255, 255, 0.15);
+                    transform: scale(0.98);
+                }
+                
+                .btn-main:active,
+                .btn-circle:active {
+                    transform: scale(0.95);
+                }
+                
+                select:active,
+                input:active {
+                    background: #f8fafc;
+                }
+            }
+
+            /* 深色模式支持 */
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #0f172a;
+                    --card-bg: #1e293b;
+                }
+                
+                body {
+                    background: var(--bg);
+                }
+                
+                .settings-bar {
+                    background: #334155;
+                }
+                
+                .setting-item label {
+                    color: #cbd5e1;
+                }
+                
+                textarea {
+                    background: #1e293b;
+                    border-color: #475569;
+                    color: #f1f5f9;
+                }
+            }
+
+            /* PWA 全屏模式优化 */
+            @media (display-mode: standalone) {
+                body {
+                    padding-top: env(safe-area-inset-top);
+                    padding-bottom: env(safe-area-inset-bottom);
+                }
+                
+                .container {
+                    max-width: 100%;
+                }
             }
 
             body.focus-active {
@@ -207,11 +314,70 @@
                 color: #94a3b8;
                 margin-top: 20px;
             }
+            
             kbd {
                 background: #e2e8f0;
                 padding: 2px 4px;
                 border-radius: 3px;
                 color: #475569;
+            }
+
+            /* PWA 动画效果 */
+            @keyframes slideIn {
+                from {
+                    transform: translateY(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes pulse {
+                0%, 100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+            }
+
+            .install-hint {
+                position: fixed;
+                bottom: 80px;
+                right: 20px;
+                background: rgba(37, 99, 235, 0.9);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 20px;
+                font-size: 12px;
+                animation: pulse 2s infinite;
+                z-index: 999;
+            }
+
+            /* 触摸反馈 */
+            .touch-feedback {
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .touch-feedback::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 0;
+                height: 0;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.5);
+                transform: translate(-50%, -50%);
+                transition: width 0.6s, height 0.6s;
+            }
+            
+            .touch-feedback.active::after {
+                width: 300px;
+                height: 300px;
             }
         </style>
     </head>
@@ -303,6 +469,73 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
         </div>
 
         <script>
+            // PWA Service Worker Registration
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then((registration) => {
+                            console.log('SW registered: ', registration);
+                        })
+                        .catch((registrationError) => {
+                            console.log('SW registration failed: ', registrationError);
+                        });
+                });
+            }
+
+            // PWA Install Prompt
+            let deferredPrompt;
+            let installButton;
+            
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                showInstallButton();
+            });
+
+            function showInstallButton() {
+                if (!installButton) {
+                    installButton = document.createElement('button');
+                    installButton.innerHTML = '📱 安装应用';
+                    installButton.style.cssText = `
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 25px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                        z-index: 1000;
+                        animation: slideIn 0.3s ease-out;
+                        font-size: 14px;
+                    `;
+                    
+                    installButton.addEventListener('click', async () => {
+                        if (deferredPrompt) {
+                            deferredPrompt.prompt();
+                            const { outcome } = await deferredPrompt.userChoice;
+                            console.log(`User response to the install prompt: ${outcome}`);
+                            deferredPrompt = null;
+                            installButton.remove();
+                        }
+                    });
+                    
+                    document.body.appendChild(installButton);
+                }
+            }
+
+            // Hide install button after successful installation
+            window.addEventListener('appinstalled', () => {
+                console.log('PWA was installed');
+                if (installButton) {
+                    installButton.remove();
+                    installButton = null;
+                }
+            });
+
             let synth = window.speechSynthesis;
             let sentences = [];
             let currentIdx = 0;
@@ -403,6 +636,7 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                     .forEach((r) => r.classList.remove("active"));
                 document.getElementById(`row-${index}`).classList.add("active");
 
+                // 移动端语音播放优化
                 let utterance = new SpeechSynthesisUtterance(text);
                 utterance.voice = synth
                     .getVoices()
@@ -412,6 +646,17 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                             document.getElementById("voiceSelect").value,
                     );
                 utterance.rate = document.getElementById("rate").value;
+                
+                // 移动端优化设置
+                if (/Mobi|Android/i.test(navigator.userAgent)) {
+                    utterance.pitch = 1.0; // 移动端保持标准音调
+                    utterance.volume = 1.0; // 移动端使用最大音量
+                }
+                
+                // iOS Safari 特殊处理
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+                    utterance.rate = Math.max(0.8, utterance.rate); // iOS 最小语速限制
+                }
 
                 utterance.onboundary = (event) => {
                     if (event.name !== "word") return;
@@ -449,8 +694,15 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                     isPlaying = true;
                     isContinuous = true;
                     updateUI(true);
-                    if (synth.paused) synth.resume();
-                    else playSentence(currentIdx);
+                    
+                    // 移动端特殊处理：确保用户交互后才能播放
+                    if (/Mobi|Android/i.test(navigator.userAgent)) {
+                        // 在移动端，每次播放都需要用户交互
+                        playSentence(currentIdx);
+                    } else {
+                        if (synth.paused) synth.resume();
+                        else playSentence(currentIdx);
+                    }
                 } else {
                     synth.pause();
                     isPlaying = false;
@@ -507,6 +759,110 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                 (document.getElementById("rateVal").innerText = e.target.value);
             document.getElementById("gapTime").oninput = (e) =>
                 (document.getElementById("gapVal").innerText = e.target.value);
+
+            // 移动端优化功能
+            function optimizeForMobile() {
+                // 添加触摸反馈
+                document.querySelectorAll('.btn-main, .btn-circle').forEach(btn => {
+                    btn.classList.add('touch-feedback');
+                    
+                    btn.addEventListener('touchstart', function() {
+                        this.classList.add('active');
+                    });
+                    
+                    btn.addEventListener('touchend', function() {
+                        setTimeout(() => {
+                            this.classList.remove('active');
+                        }, 600);
+                    });
+                });
+
+                // 移动端语音播放优化
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    console.log('Speech recognition available for future features');
+                }
+
+                // 处理移动端屏幕方向变化
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        // 重新计算布局
+                        updateViewportHeight();
+                    }, 100);
+                });
+
+                // 处理移动端虚拟键盘
+                const textInput = document.getElementById('textInput');
+                if (textInput) {
+                    textInput.addEventListener('focus', () => {
+                        // 在移动端输入时调整布局
+                        setTimeout(() => {
+                            textInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    });
+                }
+            }
+
+            // 更新视口高度（处理移动端浏览器）
+            function updateViewportHeight() {
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+
+            // 检测是否在PWA模式下运行
+            function isPWA() {
+                return window.matchMedia('(display-mode: standalone)').matches ||
+                       window.navigator.standalone === true ||
+                       document.referrer.includes('android-app://');
+            }
+
+            // PWA模式下的特殊处理
+            if (isPWA()) {
+                document.body.classList.add('pwa-mode');
+                console.log('Running in PWA mode');
+            }
+
+            // 初始化移动端优化
+            document.addEventListener('DOMContentLoaded', () => {
+                optimizeForMobile();
+                updateViewportHeight();
+            });
+
+            // 处理网络状态变化
+            window.addEventListener('online', () => {
+                console.log('App is online');
+                // 可以在这里添加同步逻辑
+            });
+
+            window.addEventListener('offline', () => {
+                console.log('App is offline');
+                // 显示离线提示
+                showOfflineNotification();
+            });
+
+            function showOfflineNotification() {
+                const notification = document.createElement('div');
+                notification.innerHTML = '📶 离线模式 - 应用仍可正常使用';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: #f59e0b;
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    z-index: 1001;
+                    animation: slideIn 0.3s ease-out;
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
         </script>
     </body>
 </html>
