@@ -486,11 +486,11 @@
 
             <div class="settings-bar">
                 <div class="setting-item">
-                    <label>语音</label>
+                    <label>Voice</label>
                     <select id="voiceSelect"></select>
                 </div>
                 <div class="setting-item">
-                    <label>语速 <span id="rateVal">1.0</span>x</label>
+                    <label>Speed <span id="rateVal">1.0</span>x</label>
                     <input
                         type="range"
                         id="rate"
@@ -501,7 +501,7 @@
                     />
                 </div>
                 <div class="setting-item">
-                    <label>停顿 <span id="gapVal">0</span>s</label>
+                    <label>Pitch <span id="gapVal">0</span>s</label>
                     <input
                         type="range"
                         id="gapTime"
@@ -630,7 +630,7 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
 
             function loadVoices() {
                 const voices = synth.getVoices();
-                const enVoices = voices.filter((v) => v.lang.includes("en"));
+                const enVoices = voices.filter((v) => v.lang.includes("en")&&v.name.includes("United"));
                 document.getElementById("voiceSelect").innerHTML = enVoices
                     .map((v) => `<option value="${v.name}">${v.name}</option>`)
                     .join("");
