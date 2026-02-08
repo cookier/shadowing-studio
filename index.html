@@ -34,43 +34,71 @@
 
             /* 移动端优化 */
             @media (max-width: 768px) {
+                :root {
+                    --line-height: 64px;
+                }
+
                 body {
                     padding: 10px;
                 }
                 
                 .container {
-                    padding: 20px;
+                    padding: 18px;
                     border-radius: 20px;
                 }
                 
                 .controls {
-                    flex-wrap: wrap;
-                    gap: 8px;
+                    flex-direction: column;
+                    gap: 10px;
+                }
+
+                .control-row {
+                    width: 100%;
+                    justify-content: space-between;
+                    max-width: 320px;
                 }
                 
                 .btn-main {
-                    padding: 14px 30px;
-                    min-width: 120px;
+                    padding: 14px 24px;
+                    width: 100%;
+                    max-width: 320px;
                     font-size: 16px;
                 }
                 
                 .btn-circle {
-                    width: 48px;
-                    height: 48px;
+                    width: 52px;
+                    height: 52px;
                     font-size: 1.2rem;
+                }
+
+                .repeat-btn {
+                    display: none;
                 }
                 
                 .sentence-text {
-                    font-size: 1rem;
+                    font-size: 1.05rem;
+                }
+
+                .sentence-row.active .sentence-text {
+                    font-size: 1.2rem;
                 }
                 
                 .view-viewport {
                     height: calc(var(--line-height) * 4);
+                    border-radius: 18px;
+                }
+
+                .sentence-row {
+                    padding: 0 18px;
                 }
                 
                 .settings-bar {
                     grid-template-columns: 1fr;
                     gap: 15px;
+                }
+
+                .footer-hint {
+                    display: none;
                 }
             }
 
@@ -174,15 +202,36 @@
                 box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
             }
 
+            .view-viewport::before,
+            .view-viewport::after {
+                content: "";
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: 24%;
+                pointer-events: none;
+                z-index: 2;
+            }
+
+            .view-viewport::before {
+                top: 0;
+                background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(30, 41, 59, 0) 100%);
+            }
+
+            .view-viewport::after {
+                bottom: 0;
+                background: linear-gradient(0deg, rgba(30, 41, 59, 0.95) 0%, rgba(30, 41, 59, 0) 100%);
+            }
+
             .script-canvas {
                 transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             }
 
             .sentence-row {
-                height: var(--line-height);
+                min-height: var(--line-height);
                 display: flex;
                 align-items: center;
-                padding: 0 25px;
+                padding: 10px 25px;
                 box-sizing: border-box;
                 gap: 15px;
                 opacity: 0.25;
@@ -200,14 +249,22 @@
                 flex: 1;
                 font-size: 1.15rem;
                 color: #cbd5e1;
-                white-space: nowrap;
+                white-space: normal;
                 overflow: hidden;
-                text-overflow: ellipsis;
+                line-height: 1.4;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
 
             .active .sentence-text {
                 color: #ffffff;
-                font-weight: 500;
+                font-weight: 600;
+                display: block;
+                -webkit-line-clamp: unset;
+                line-clamp: unset;
+                overflow: visible;
             }
 
             .highlight-word {
@@ -273,39 +330,64 @@
             .controls {
                 display: flex;
                 justify-content: center;
+                align-items: center;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+
+            .control-row {
+                display: flex;
+                align-items: center;
                 gap: 12px;
             }
 
             .btn-main {
-                padding: 12px 40px;
+                padding: 12px 36px;
                 border-radius: 30px;
                 border: none;
                 background: var(--primary);
                 color: white;
                 font-weight: 700;
                 cursor: pointer;
-                min-width: 130px;
+                min-width: 160px;
                 transition: 0.2s;
+                box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
             }
             .btn-main.playing {
                 background: #ef4444;
+                box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
             }
 
             .btn-circle {
                 width: 44px;
                 height: 44px;
                 border-radius: 50%;
-                border: none;
-                background: #e2e8f0;
+                border: 1px solid #e2e8f0;
+                background: #f8fafc;
                 color: #475569;
                 cursor: pointer;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 1.1rem;
+                box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+                transition: 0.2s;
             }
             .btn-circle:hover {
-                background: #cbd5e1;
+                background: #eef2ff;
+                border-color: #c7d2fe;
+            }
+
+            .repeat-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 0.7rem;
+                box-shadow: none;
+                background: rgba(255, 255, 255, 0.85);
+            }
+
+            .sentence-row.active .repeat-btn {
+                background: #ffffff;
             }
 
             .footer-hint {
@@ -436,29 +518,31 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
             >
 
             <div class="controls">
-                <button
-                    class="btn-circle"
-                    onclick="toggleFocus()"
-                    title="专注模式 (F)"
-                >
-                    👁️
-                </button>
-                <button
-                    class="btn-circle"
-                    onclick="handleBottomPlay()"
-                    title="继续播放 (Enter)"
-                >
-                    ▶
-                </button>
+                <div class="control-row">
+                    <button
+                        class="btn-circle"
+                        onclick="toggleFocus()"
+                        title="专注模式 (F)"
+                    >
+                        👁️
+                    </button>
+                    <button
+                        class="btn-circle"
+                        onclick="handleBottomPlay()"
+                        title="继续播放 (Enter)"
+                    >
+                        ▶
+                    </button>
+                    <button
+                        class="btn-circle"
+                        onclick="stopAll()"
+                        title="停止 (Esc)"
+                    >
+                        ■
+                    </button>
+                </div>
                 <button id="toggleBtn" class="btn-main" onclick="togglePlay()">
                     START
-                </button>
-                <button
-                    class="btn-circle"
-                    onclick="stopAll()"
-                    title="停止 (Esc)"
-                >
-                    ■
                 </button>
             </div>
 
@@ -543,7 +627,6 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
             let isContinuous = true;
             let lastPreparedText = "";
             let gapTimer = null;
-            const lineHeight = 60;
 
             function loadVoices() {
                 const voices = synth.getVoices();
@@ -606,7 +689,7 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                             (s, i) => `
                         <div class="sentence-row" id="row-${i}" onclick="jumpTo(${i}, true)">
                             <div class="sentence-text" id="text-${i}">${s}</div>
-                            <button class="btn-circle" style="width:24px; height:24px; font-size:0.6rem" onclick="repeatOnlyThis(event, ${i})">↺</button>
+                            <button class="btn-circle repeat-btn" onclick="repeatOnlyThis(event, ${i})">↺</button>
                         </div>
                     `,
                         )
@@ -615,7 +698,19 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                         '<div class="sentence-row"></div><div class="sentence-row"></div>';
                     canvas.innerHTML = html;
                     currentIdx = 0;
+                    updateCenterPadding();
                 }
+            }
+
+            function updateCenterPadding() {
+                const viewport = document.querySelector(".view-viewport");
+                const canvas = document.getElementById("scriptCanvas");
+                const sampleRow = document.querySelector('.sentence-row[id^="row-"]');
+                if (!viewport || !canvas || !sampleRow) return;
+                const pad = Math.max(0, viewport.clientHeight / 2 - sampleRow.offsetHeight / 2);
+                canvas.style.paddingTop = `${pad}px`;
+                canvas.style.paddingBottom = `${pad}px`;
+                canvas.dataset.centerPad = `${pad}`;
             }
 
             function playSentence(index) {
@@ -630,7 +725,16 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                 const canvas = document.getElementById("scriptCanvas");
                 const text = sentences[index];
                 const textSpan = document.getElementById(`text-${index}`);
-                canvas.style.transform = `translateY(-${index * lineHeight}px)`;
+                const row = document.getElementById(`row-${index}`);
+                const viewport = document.querySelector(".view-viewport");
+                if (row && viewport) {
+                    const centerPad = parseFloat(canvas.dataset.centerPad || "0");
+                    const offsetTop = row.offsetTop;
+                    const target = offsetTop - centerPad;
+                    const maxTranslate = Math.max(0, canvas.scrollHeight - viewport.clientHeight);
+                    const clamped = Math.min(Math.max(0, target), maxTranslate);
+                    canvas.style.transform = `translateY(-${clamped}px)`;
+                }
                 document
                     .querySelectorAll(".sentence-row")
                     .forEach((r) => r.classList.remove("active"));
@@ -787,6 +891,7 @@ Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the foc
                     setTimeout(() => {
                         // 重新计算布局
                         updateViewportHeight();
+                        updateCenterPadding();
                     }, 100);
                 });
 
