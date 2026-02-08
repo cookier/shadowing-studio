@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Shadowing Studio Pro - Minimalist Edition</title>
+        <style>
+            :root {
+                --primary: #2563eb;
+                --bg: #f8fafc;
+                --card-bg: #ffffff;
+                --player-bg: #1e293b;
+                --line-height: 60px;
+            }
+
+            body {
+                font-family: "Inter", "PingFang SC", system-ui, sans-serif;
+                background: var(--bg);
+                display: flex;
+                justify-content: center;
+                padding: 20px;
+                margin: 0;
+                transition: background 0.4s;
+            }
+
+            body.focus-active {
+                background: #0f172a;
+            }
+
+            .container {
+                width: 100%;
+                max-width: 720px;
+                background: var(--card-bg);
+                padding: 30px;
+                border-radius: 24px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+                box-sizing: border-box;
+            }
+
+            .focus-active .container {
+                background: transparent;
+                box-shadow: none;
+                max-width: 850px;
+            }
+            .focus-active h3,
+            .focus-active .settings-bar,
+            .focus-active #textInput,
+            .focus-active .footer-hint {
+                display: none !important;
+            }
+
+            h3 {
+                text-align: center;
+                margin-top: 0;
+                color: #334155;
+                font-weight: 700;
+            }
+
+            /* --- 提词器区域 --- */
+            .view-viewport {
+                background: var(--player-bg);
+                height: calc(var(--line-height) * 5);
+                border-radius: 16px;
+                overflow: hidden;
+                position: relative;
+                margin-bottom: 20px;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+            }
+
+            .script-canvas {
+                transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+
+            .sentence-row {
+                height: var(--line-height);
+                display: flex;
+                align-items: center;
+                padding: 0 25px;
+                box-sizing: border-box;
+                gap: 15px;
+                opacity: 0.25;
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+
+            /* 活跃行：仅使用柔和背景，去掉指示条 */
+            .sentence-row.active {
+                opacity: 1;
+                background: rgba(255, 255, 255, 0.07);
+            }
+
+            .sentence-text {
+                flex: 1;
+                font-size: 1.15rem;
+                color: #cbd5e1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .active .sentence-text {
+                color: #ffffff;
+                font-weight: 500;
+            }
+
+            .highlight-word {
+                color: #60a5fa;
+                background: rgba(37, 99, 235, 0.15);
+                border-bottom: 2px solid #3b82f6;
+            }
+
+            /* --- 设置栏优化 --- */
+            .settings-bar {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr); /* 严格三列等分 */
+                gap: 12px;
+                margin-bottom: 20px;
+                background: #f1f5f9;
+                padding: 12px;
+                border-radius: 12px;
+                box-sizing: border-box;
+            }
+
+            .setting-item {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 0; /* 防止内容撑破 grid */
+            }
+
+            .setting-item label {
+                font-size: 0.75rem;
+                color: #64748b;
+                font-weight: 600;
+            }
+
+            .setting-item select,
+            .setting-item input {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            select {
+                padding: 4px;
+                border-radius: 6px;
+                border: 1px solid #cbd5e1;
+                background: white;
+                font-size: 0.8rem;
+            }
+
+            /* --- 输入与控制 --- */
+            textarea {
+                width: 100%;
+                height: 80px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 12px;
+                margin-bottom: 20px;
+                resize: none;
+                box-sizing: border-box;
+                font-family: inherit;
+                font-size: 0.95rem;
+                line-height: 1.5;
+            }
+
+            .controls {
+                display: flex;
+                justify-content: center;
+                gap: 12px;
+            }
+
+            .btn-main {
+                padding: 12px 40px;
+                border-radius: 30px;
+                border: none;
+                background: var(--primary);
+                color: white;
+                font-weight: 700;
+                cursor: pointer;
+                min-width: 130px;
+                transition: 0.2s;
+            }
+            .btn-main.playing {
+                background: #ef4444;
+            }
+
+            .btn-circle {
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                border: none;
+                background: #e2e8f0;
+                color: #475569;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.1rem;
+            }
+            .btn-circle:hover {
+                background: #cbd5e1;
+            }
+
+            .footer-hint {
+                text-align: center;
+                font-size: 0.7rem;
+                color: #94a3b8;
+                margin-top: 20px;
+            }
+            kbd {
+                background: #e2e8f0;
+                padding: 2px 4px;
+                border-radius: 3px;
+                color: #475569;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h3>🎙️ Shadowing Studio Pro</h3>
+
+            <div class="view-viewport">
+                <div class="script-canvas" id="scriptCanvas">
+                    <div
+                        class="sentence-row"
+                        style="
+                            opacity: 0.5;
+                            justify-content: center;
+                            width: 100%;
+                        "
+                    >
+                        <div class="sentence-text" style="text-align: center">
+                            Ready to Shadow?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-bar">
+                <div class="setting-item">
+                    <label>语音</label>
+                    <select id="voiceSelect"></select>
+                </div>
+                <div class="setting-item">
+                    <label>语速 <span id="rateVal">1.0</span>x</label>
+                    <input
+                        type="range"
+                        id="rate"
+                        min="0.5"
+                        max="1.5"
+                        step="0.1"
+                        value="1"
+                    />
+                </div>
+                <div class="setting-item">
+                    <label>停顿 <span id="gapVal">0</span>s</label>
+                    <input
+                        type="range"
+                        id="gapTime"
+                        min="0"
+                        max="5"
+                        step="0.5"
+                        value="0"
+                    />
+                </div>
+            </div>
+
+            <textarea id="textInput">
+Hello! The UI is now cleaner. The settings bar is perfectly aligned, and the focus is purely on the text. Enjoy your practice!</textarea
+            >
+
+            <div class="controls">
+                <button
+                    class="btn-circle"
+                    onclick="toggleFocus()"
+                    title="专注模式 (F)"
+                >
+                    👁️
+                </button>
+                <button
+                    class="btn-circle"
+                    onclick="handleBottomPlay()"
+                    title="继续播放 (Enter)"
+                >
+                    ▶
+                </button>
+                <button id="toggleBtn" class="btn-main" onclick="togglePlay()">
+                    START
+                </button>
+                <button
+                    class="btn-circle"
+                    onclick="stopAll()"
+                    title="停止 (Esc)"
+                >
+                    ■
+                </button>
+            </div>
+
+            <div class="footer-hint">
+                <kbd>空格</kbd> 播放/暂停 | <kbd>↑/↓</kbd> 切句 |
+                <kbd>R</kbd> 单重复读 | <kbd>F</kbd> 专注
+            </div>
+        </div>
+
+        <script>
+            let synth = window.speechSynthesis;
+            let sentences = [];
+            let currentIdx = 0;
+            let isPlaying = false;
+            let isContinuous = true;
+            let lastPreparedText = "";
+            let gapTimer = null;
+            const lineHeight = 60;
+
+            function loadVoices() {
+                const voices = synth.getVoices();
+                const enVoices = voices.filter((v) => v.lang.includes("en"));
+                document.getElementById("voiceSelect").innerHTML = enVoices
+                    .map((v) => `<option value="${v.name}">${v.name}</option>`)
+                    .join("");
+            }
+            synth.onvoiceschanged = loadVoices;
+            loadVoices();
+
+            document.addEventListener("keydown", (e) => {
+                if (e.target.tagName === "TEXTAREA") return;
+                switch (e.code) {
+                    case "Space":
+                        e.preventDefault();
+                        togglePlay();
+                        break;
+                    case "ArrowUp":
+                        e.preventDefault();
+                        jumpTo(Math.max(0, currentIdx - 1), true);
+                        break;
+                    case "ArrowDown":
+                        e.preventDefault();
+                        jumpTo(
+                            Math.min(sentences.length - 1, currentIdx + 1),
+                            true,
+                        );
+                        break;
+                    case "KeyR":
+                        jumpTo(currentIdx, false);
+                        break;
+                    case "KeyF":
+                        toggleFocus();
+                        break;
+                    case "Enter":
+                        handleBottomPlay();
+                        break;
+                    case "Escape":
+                        stopAll();
+                        break;
+                }
+            });
+
+            function prepareDisplay() {
+                const currentText = document.getElementById("textInput").value;
+                if (
+                    currentText !== lastPreparedText ||
+                    sentences.length === 0
+                ) {
+                    lastPreparedText = currentText;
+                    sentences = currentText
+                        .split(/(?<=[.!?])\s+/)
+                        .filter((s) => s.trim().length > 0);
+                    const canvas = document.getElementById("scriptCanvas");
+                    let html =
+                        '<div class="sentence-row"></div><div class="sentence-row"></div>';
+                    html += sentences
+                        .map(
+                            (s, i) => `
+                        <div class="sentence-row" id="row-${i}" onclick="jumpTo(${i}, true)">
+                            <div class="sentence-text" id="text-${i}">${s}</div>
+                            <button class="btn-circle" style="width:24px; height:24px; font-size:0.6rem" onclick="repeatOnlyThis(event, ${i})">↺</button>
+                        </div>
+                    `,
+                        )
+                        .join("");
+                    html +=
+                        '<div class="sentence-row"></div><div class="sentence-row"></div>';
+                    canvas.innerHTML = html;
+                    currentIdx = 0;
+                }
+            }
+
+            function playSentence(index) {
+                clearTimeout(gapTimer);
+                if (index >= sentences.length) {
+                    isPlaying = false;
+                    currentIdx = sentences.length;
+                    updateUI(false);
+                    return;
+                }
+                currentIdx = index;
+                const canvas = document.getElementById("scriptCanvas");
+                const text = sentences[index];
+                const textSpan = document.getElementById(`text-${index}`);
+                canvas.style.transform = `translateY(-${index * lineHeight}px)`;
+                document
+                    .querySelectorAll(".sentence-row")
+                    .forEach((r) => r.classList.remove("active"));
+                document.getElementById(`row-${index}`).classList.add("active");
+
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.voice = synth
+                    .getVoices()
+                    .find(
+                        (v) =>
+                            v.name ===
+                            document.getElementById("voiceSelect").value,
+                    );
+                utterance.rate = document.getElementById("rate").value;
+
+                utterance.onboundary = (event) => {
+                    if (event.name !== "word") return;
+                    const charIdx = event.charIndex;
+                    const charLen = event.charLength || 1;
+                    const before = text.substring(0, charIdx);
+                    const word = text.substring(charIdx, charIdx + charLen);
+                    const after = text.substring(charIdx + charLen);
+                    textSpan.innerHTML = `${before}<span class="highlight-word">${word}</span>${after}`;
+                };
+
+                utterance.onend = () => {
+                    textSpan.innerHTML = text;
+                    if (isPlaying && isContinuous) {
+                        gapTimer = setTimeout(
+                            () => {
+                                currentIdx++;
+                                playSentence(currentIdx);
+                            },
+                            document.getElementById("gapTime").value * 1000,
+                        );
+                    } else {
+                        isPlaying = false;
+                        updateUI(false);
+                    }
+                };
+                synth.cancel();
+                synth.speak(utterance);
+            }
+
+            function togglePlay() {
+                prepareDisplay();
+                if (!isPlaying) {
+                    if (currentIdx >= sentences.length) currentIdx = 0;
+                    isPlaying = true;
+                    isContinuous = true;
+                    updateUI(true);
+                    if (synth.paused) synth.resume();
+                    else playSentence(currentIdx);
+                } else {
+                    synth.pause();
+                    isPlaying = false;
+                    updateUI(false);
+                }
+            }
+
+            function handleBottomPlay() {
+                prepareDisplay();
+                jumpTo(currentIdx >= sentences.length ? 0 : currentIdx, true);
+            }
+            function jumpTo(index, continuous) {
+                prepareDisplay();
+                isPlaying = true;
+                isContinuous = continuous;
+                updateUI(true);
+                playSentence(index);
+            }
+            function repeatOnlyThis(event, index) {
+                event.stopPropagation();
+                jumpTo(index, false);
+            }
+            function stopAll() {
+                clearTimeout(gapTimer);
+                synth.cancel();
+                isPlaying = false;
+                currentIdx = 0;
+                updateUI(false);
+                document
+                    .querySelectorAll(".sentence-row")
+                    .forEach((r) => r.classList.remove("active"));
+                document.getElementById("scriptCanvas").style.transform =
+                    `translateY(0)`;
+            }
+            function toggleFocus() {
+                document.body.classList.toggle("focus-active");
+            }
+            function updateUI(playing) {
+                const btn = document.getElementById("toggleBtn");
+                if (playing) {
+                    btn.innerText = "PAUSE";
+                    btn.classList.add("playing");
+                } else {
+                    btn.innerText =
+                        currentIdx >= sentences.length && sentences.length > 0
+                            ? "RESTART"
+                            : synth.paused || currentIdx > 0
+                              ? "RESUME"
+                              : "START";
+                    btn.classList.remove("playing");
+                }
+            }
+            document.getElementById("rate").oninput = (e) =>
+                (document.getElementById("rateVal").innerText = e.target.value);
+            document.getElementById("gapTime").oninput = (e) =>
+                (document.getElementById("gapVal").innerText = e.target.value);
+        </script>
+    </body>
+</html>
