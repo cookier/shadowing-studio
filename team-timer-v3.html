@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e14">
+<title>Team Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: #0a0e14; color: #e8e8e8;
+    transition: background 0.8s ease;
+  }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px; padding-top: env(safe-area-inset-top); position: relative;
+  }
+  body.mode-idle, body.mode-normal { background: #0a0e14; }
+  body.mode-cool {
+    background:
+      radial-gradient(circle at 50% 12%, rgba(154, 193, 255, 0.06), transparent 28%),
+      linear-gradient(180deg, #0c1118 0%, #091018 48%, #080c12 100%);
+  }
+  body.mode-near {
+    background:
+      radial-gradient(circle at 50% 12%, rgba(255,204,0,0.08), transparent 28%),
+      linear-gradient(180deg, #191503 0%, #101118 58%, #090c12 100%);
+  }
+  body.mode-over {
+    background:
+      radial-gradient(circle at 50% 10%, rgba(255,59,48,0.12), transparent 32%),
+      linear-gradient(180deg, #190707 0%, #10090c 48%, #090d13 100%);
+  }
+
+  .ambient-layer,
+  .vignette-layer {
+    position: fixed; inset: -8%; pointer-events: none;
+  }
+  .ambient-layer {
+    z-index: 0;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(52,211,153,0.08), transparent 22%),
+      radial-gradient(circle at 20% 75%, rgba(52,211,153,0.04), transparent 24%),
+      radial-gradient(circle at 80% 82%, rgba(96,165,250,0.03), transparent 22%);
+    opacity: 0.72;
+    transform: translate3d(0,0,0) scale(1.03);
+    transition: background 0.8s ease, opacity 0.6s ease, filter 0.6s ease;
+    will-change: transform, opacity, filter;
+  }
+  .vignette-layer {
+    z-index: 0;
+    background:
+      radial-gradient(circle at center, transparent 38%, rgba(0,0,0,0.22) 76%, rgba(0,0,0,0.56) 100%),
+      linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.22));
+    opacity: 0.44;
+    transition: opacity 0.6s ease, background 0.8s ease;
+    will-change: opacity;
+  }
+
+  .glow {
+    position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%);
+    width: 420px; height: 420px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(52,211,153,0.08) 0%, transparent 70%);
+    transition: background 0.8s ease, opacity 0.6s ease;
+    z-index: 0;
+    will-change: transform, opacity;
+  }
+  body.mode-cool .ambient-layer {
+    background:
+      radial-gradient(circle at 50% 18%, rgba(129,178,255,0.12), transparent 22%),
+      radial-gradient(circle at 18% 74%, rgba(96,165,250,0.06), transparent 24%),
+      radial-gradient(circle at 84% 22%, rgba(148,163,184,0.07), transparent 22%);
+    opacity: 0.86;
+    animation: ambientDriftCool 2.7s ease-in-out infinite;
+  }
+  body.mode-near .ambient-layer {
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255,204,0,0.18), transparent 22%),
+      radial-gradient(circle at 15% 78%, rgba(255,170,0,0.08), transparent 24%),
+      radial-gradient(circle at 84% 24%, rgba(255,214,10,0.08), transparent 24%);
+    opacity: 0.92;
+    filter: saturate(1.08);
+    animation: ambientDriftNear 1.55s ease-in-out infinite;
+  }
+  body.mode-over .ambient-layer {
+    background:
+      radial-gradient(circle at 50% 16%, rgba(255,59,48,0.2), transparent 24%),
+      radial-gradient(circle at 16% 76%, rgba(255,87,34,0.12), transparent 24%),
+      radial-gradient(circle at 84% 22%, rgba(255,107,107,0.12), transparent 22%);
+    opacity: 0.98;
+    filter: saturate(1.15);
+    animation: ambientDriftOver 1.25s cubic-bezier(.48,.05,.56,.95) infinite, ambientImpactOver 3.2s ease-in-out infinite;
+  }
+  body.mode-cool .vignette-layer {
+    opacity: 0.58;
+    background:
+      radial-gradient(circle at center, transparent 36%, rgba(0,0,0,0.28) 74%, rgba(0,0,0,0.66) 100%),
+      linear-gradient(180deg, rgba(6,10,18,0.2), rgba(0,0,0,0.28));
+  }
+  body.mode-near .vignette-layer {
+    opacity: 0.64;
+    background:
+      radial-gradient(circle at center, transparent 36%, rgba(0,0,0,0.3) 74%, rgba(0,0,0,0.72) 100%),
+      linear-gradient(180deg, rgba(28,20,3,0.18), rgba(0,0,0,0.28));
+    animation: vignetteNear 1.55s ease-in-out infinite;
+  }
+  body.mode-over .vignette-layer {
+    opacity: 0.8;
+    background:
+      radial-gradient(circle at center, transparent 34%, rgba(0,0,0,0.42) 72%, rgba(0,0,0,0.84) 100%),
+      linear-gradient(180deg, rgba(35,6,6,0.22), rgba(0,0,0,0.4));
+    animation: vignetteOver 1.25s ease-in-out infinite;
+  }
+  body.mode-cool .glow {
+    background: radial-gradient(circle, rgba(129,178,255,0.1) 0%, rgba(129,178,255,0.04) 28%, transparent 70%);
+    animation: glowPulseCool 2.7s ease-in-out infinite;
+  }
+  body.mode-near .glow {
+    background: radial-gradient(circle, rgba(255,204,0,0.13) 0%, rgba(255,204,0,0.05) 28%, transparent 70%);
+    animation: glowPulseNear 1.55s ease-in-out infinite;
+  }
+  body.mode-over .glow {
+    background: radial-gradient(circle, rgba(255,59,48,0.2) 0%, rgba(255,59,48,0.08) 30%, transparent 72%);
+    animation: glowPulseOver 1.05s ease-in-out infinite;
+  }
+
+  .title {
+    font-size: 12px; letter-spacing: 6px; text-transform: uppercase;
+    color: rgba(255,255,255,0.3); margin-bottom: 32px; font-weight: 300;
+    position: relative; z-index: 1;
+  }
+
+  .notif-bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: rgba(255,204,0,0.12); border-bottom: 1px solid rgba(255,204,0,0.25);
+    color: #ffd633; font-size: 13px; text-align: center;
+    padding: 12px 20px; padding-top: calc(12px + env(safe-area-inset-top));
+    z-index: 200; cursor: pointer; animation: fadeIn 0.3s ease;
+  }
+  .notif-bar.hidden { display: none; }
+
+  .presets { text-align: center; position: relative; z-index: 1; }
+  .presets-hint { font-size: 15px; color: rgba(255,255,255,0.4); margin-bottom: 28px; font-weight: 300; }
+  .presets-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: 500px; }
+  .preset-btn {
+    background: transparent; border: 1px solid rgba(52,211,153,0.3);
+    color: #34d399; font-size: 20px; font-weight: 600;
+    font-family: inherit; padding: 18px 32px; border-radius: 16px;
+    cursor: pointer; transition: all 0.2s ease; min-width: 110px;
+    -webkit-user-select: none; user-select: none;
+  }
+  .preset-btn:active { background: rgba(52,211,153,0.15); transform: scale(0.96); }
+
+  .timer-wrap { text-align: center; position: relative; z-index: 1; width: 100%; }
+  .ring-container { position: relative; width: 280px; height: 280px; margin: 0 auto 24px; }
+  @media (min-width: 400px) { .ring-container { width: 320px; height: 320px; } }
+  .ring-container svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 4; }
+  .ring-fg { fill: none; stroke: #34d399; stroke-width: 4; stroke-linecap: round; transition: stroke 0.8s ease; }
+  .ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .ring-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.25); margin-bottom: 6px; font-weight: 600; transition: color 0.5s ease; }
+  .ring-time { font-size: 52px; font-weight: 800; color: #fff; line-height: 1; letter-spacing: -2px; transition: color 0.5s ease; }
+  .ring-elapsed { font-size: 13px; color: rgba(255,255,255,0.2); margin-top: 10px; }
+
+  .state-normal .ring-fg { stroke: #34d399; }
+  .state-cool .ring-fg { stroke: #9ac1ff; }
+  .state-cool .ring-label { color: #9ac1ff; }
+  .state-cool .ring-time { color: #eef5ff; }
+  .state-near .ring-fg { stroke: #ffcc00; }
+  .state-near .ring-label { color: #ffcc00; }
+  .state-near .ring-time { color: #ffcc00; }
+  .state-over .ring-fg { stroke: #ff3b30; }
+  .state-over .ring-label { color: #ff3b30; }
+  .state-over .ring-time { color: #ff3b30; }
+
+  .pulse { animation: pulse 1s infinite; }
+  .pulse-slow { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.65; } }
+  @keyframes ambientDriftCool {
+    0%, 100% { transform: translate3d(-2px, 0, 0) scale(1.03); }
+    50% { transform: translate3d(3px, -1px, 0) scale(1.06); }
+  }
+  @keyframes ambientDriftNear {
+    0%, 100% { transform: translate3d(-4px, 0, 0) scale(1.04); }
+    50% { transform: translate3d(5px, -2px, 0) scale(1.08); }
+  }
+  @keyframes ambientDriftOver {
+    0%, 100% { transform: translate3d(-8px, 0, 0) scale(1.07) rotate(-0.35deg); }
+    26% { transform: translate3d(7px, -2px, 0) scale(1.09) rotate(0.25deg); }
+    58% { transform: translate3d(-5px, 2px, 0) scale(1.06) rotate(-0.2deg); }
+    82% { transform: translate3d(9px, -1px, 0) scale(1.1) rotate(0.32deg); }
+  }
+  @keyframes ambientImpactOver {
+    0%, 74%, 100% { filter: saturate(1.15) brightness(1); }
+    78% { filter: saturate(1.26) brightness(1.08); }
+    84% { filter: saturate(1.16) brightness(0.98); }
+  }
+  @keyframes vignetteNear {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.7; }
+  }
+  @keyframes vignetteOver {
+    0%, 100% { opacity: 0.76; }
+    45% { opacity: 0.86; }
+    78% { opacity: 0.94; }
+  }
+  @keyframes glowPulseCool {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.98); opacity: 0.68; }
+    50% { transform: translate(-50%, -50%) scale(1.03); opacity: 0.9; }
+  }
+  @keyframes glowPulseNear {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.96); opacity: 0.75; }
+    50% { transform: translate(-50%, -50%) scale(1.04); opacity: 1; }
+  }
+  @keyframes glowPulseOver {
+    0%, 100% { transform: translate(-50%, -50%) scale(0.98); opacity: 0.82; }
+    42% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    76% { transform: translate(-50%, -50%) scale(1.12); opacity: 0.92; }
+  }
+
+  .controls { display: flex; gap: 12px; justify-content: center; margin-bottom: 24px; }
+  .btn-stop {
+    background: rgba(255,59,48,0.15); border: 1px solid rgba(255,59,48,0.3);
+    color: #ff3b30; font-size: 15px; font-weight: 600; font-family: inherit;
+    padding: 14px 36px; border-radius: 14px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-stop:active { background: rgba(255,59,48,0.3); transform: scale(0.96); }
+  .btn-reset {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.5); font-size: 15px; font-weight: 400; font-family: inherit;
+    padding: 14px 36px; border-radius: 14px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-reset:active { background: rgba(255,255,255,0.12); }
+
+  .result {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 20px 32px; margin-bottom: 20px; animation: fadeIn 0.5s ease;
+  }
+  .result-label { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,0.3); text-transform: uppercase; margin-bottom: 6px; }
+  .result-time { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+  .result-note { font-size: 12px; color: rgba(255,255,255,0.2); margin-top: 4px; }
+
+  .alert-log { max-width: 340px; margin: 0 auto; max-height: 140px; overflow-y: auto; }
+  .alert-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin-bottom: 5px; border-radius: 10px; font-size: 13px; animation: slideIn 0.3s ease; }
+  .alert-item .time { font-size: 11px; opacity: 0.5; margin-left: auto; white-space: nowrap; }
+  .alert-info { background: rgba(52,211,153,0.06); color: #34d399; }
+  .alert-warning { background: rgba(255,204,0,0.06); color: #ffd633; }
+  .alert-danger { background: rgba(255,59,48,0.08); color: #ff6b63; }
+  .alert-overtime { background: rgba(255,59,48,0.05); color: #ff8a80; }
+
+  .sound-banner {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(52,211,153,0.1); border-top: 1px solid rgba(52,211,153,0.2);
+    color: #34d399; font-size: 13px; text-align: center;
+    padding: 14px 20px; z-index: 100; cursor: pointer;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    animation: fadeIn 0.3s ease;
+  }
+  .sound-banner.hidden { display: none; }
+
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+</style>
+</head>
+<body>
+
+<div class="notif-bar hidden" id="notifBar" onclick="requestNotifPermission()">
+  📲 点击授权通知权限，后台/锁屏也能收到提醒
+</div>
+
+<div class="ambient-layer" id="ambientLayer"></div>
+<div class="vignette-layer" id="vignetteLayer"></div>
+<div class="glow" id="glow"></div>
+<div class="title">Team Timer</div>
+
+<!-- Idle -->
+<div class="presets" id="idleView">
+  <div class="presets-hint">选择计时时长</div>
+  <div class="presets-grid">
+    <button class="preset-btn" onclick="startTimer(900)">15 min</button>
+    <button class="preset-btn" onclick="startTimer(600)">10 min</button>
+    <button class="preset-btn" onclick="startTimer(480)">8 min</button>
+    <button class="preset-btn" onclick="startTimer(360)">6 min</button>
+    <button class="preset-btn" onclick="startTimer(300)">5 min</button>
+    <button class="preset-btn" onclick="startTimer(240)">4 min</button>
+    <button class="preset-btn" onclick="startTimer(180)">3 min</button>
+    <button class="preset-btn" onclick="startTimer(120)">2 min</button>
+    <button class="preset-btn" onclick="startTimer(60)">1 min</button>
+  </div>
+</div>
+
+<!-- Running / Finished -->
+<div class="timer-wrap" id="timerView" style="display:none;">
+  <div class="ring-container" id="ringContainer">
+    <svg viewBox="0 0 320 320">
+      <circle class="ring-bg" cx="160" cy="160" r="140"/>
+      <circle class="ring-fg" id="ringFg" cx="160" cy="160" r="140"
+        stroke-dasharray="879.65" stroke-dashoffset="0"
+        transform="rotate(-90 160 160)"/>
+    </svg>
+    <div class="ring-center">
+      <div class="ring-label" id="ringLabel">剩余时间</div>
+      <div class="ring-time" id="ringTime">00:00</div>
+      <div class="ring-elapsed" id="ringElapsed">已用 00:00.00</div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="btn-stop" id="btnStop" onclick="stopTimer()">⏹ 停止</button>
+    <button class="btn-reset" onclick="resetTimer()">↺ 重选</button>
+  </div>
+
+  <div class="result" id="resultBox" style="display:none;">
+    <div class="result-label">最终用时</div>
+    <div class="result-time" id="resultTime">00:00.00</div>
+    <div class="result-note" id="resultNote"></div>
+  </div>
+
+  <div class="alert-log" id="alertLog"></div>
+</div>
+
+<div class="sound-banner hidden" id="soundBanner" onclick="unlockSound()">
+  🔔 点击此处启用提醒声音
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ══════════════════════════════════════
+// 1. NOTIFICATION API (background alerts)
+// ══════════════════════════════════════
+let notifGranted = false;
+
+function checkNotifSupport() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    notifGranted = true;
+  } else if (Notification.permission !== 'denied') {
+    $('notifBar').classList.remove('hidden');
+  }
+}
+
+function requestNotifPermission() {
+  if (!('Notification' in window)) { $('notifBar').classList.add('hidden'); return; }
+  Notification.requestPermission().then(p => {
+    notifGranted = (p === 'granted');
+    $('notifBar').classList.add('hidden');
+  });
+}
+
+function sendNotification(title, body) {
+  if (!notifGranted) return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏱️</text></svg>',
+      tag: 'team-timer-' + Date.now(),
+      requireInteraction: true,
+      silent: false,
+    });
+    setTimeout(() => n.close(), 15000);
+  } catch(e) {}
+}
+
+checkNotifSupport();
+
+// ══════════════════════════════════════
+// 2. AUDIO (foreground sound + vibrate)
+// ══════════════════════════════════════
+let audioCtx = null;
+let soundUnlocked = false;
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain(); g.gain.value = 0;
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.01);
+  soundUnlocked = true;
+  $('soundBanner').classList.add('hidden');
+}
+
+const PATTERNS = {
+  info:     [{f:660,d:0.12},{f:0,d:0.06},{f:880,d:0.18}],
+  warning:  [{f:880,d:0.15},{f:0,d:0.05},{f:880,d:0.15}],
+  danger:   [{f:1200,d:0.2},{f:0,d:0.08},{f:1200,d:0.2},{f:0,d:0.08},{f:1200,d:0.3}],
+  overtime: [{f:600,d:0.4},{f:0,d:0.1},{f:400,d:0.6}],
+};
+
+function playBeep(type) {
+  if (!audioCtx || !soundUnlocked) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const seq = PATTERNS[type] || PATTERNS.warning;
+  let t = audioCtx.currentTime;
+  seq.forEach(({f, d}) => {
+    if (f > 0) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine'; osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.4, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + d);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t); osc.stop(t + d);
+    }
+    t += d;
+  });
+  if (navigator.vibrate) {
+    const vibeMap = { info:[80,40,80], warning:[100,50,100], danger:[200,80,200,80,300], overtime:[400,100,600] };
+    navigator.vibrate(vibeMap[type] || [100]);
+  }
+}
+
+function unlockSound() { ensureAudio(); playBeep('warning'); }
+
+// ══════════════════════════════════════
+// 3. TIMER ENGINE
+// ══════════════════════════════════════
+let phase = 'idle';
+let targetSec = 0;
+let startTime = null;
+let rafId = null;
+let firedAlerts = new Set();
+let scheduledTimeouts = [];
+
+const ALERTS = [
+  { offset: -60, label: '🔔 还剩 1 分钟', type: 'info',    ntTitle: '⏱️ Team Timer', ntBody: '还剩 1 分钟' },
+  { offset: -15, label: '⏳ 还剩 15 秒',  type: 'warning', ntTitle: '⏱️ Team Timer', ntBody: '⚠️ 还剩 15 秒！' },
+  { offset: 0,   label: '⏰ 时间到！',     type: 'danger',  ntTitle: '⏰ 时间到！',    ntBody: '计时结束，请回到 Team Timer' },
+  { offset: 15,  label: '🔴 已超时 15 秒', type: 'overtime', ntTitle: '🔴 已超时！',   ntBody: '已超时 15 秒！' },
+];
+
+function fmtTime(sec) {
+  const a = Math.abs(sec), m = Math.floor(a/60), s = a%60;
+  return (sec < 0 ? '-' : '') + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function fmtElapsed(ms) {
+  const ts = Math.floor(ms/1000), m = Math.floor(ts/60), s = ts%60;
+  const c = Math.floor((ms%1000)/10);
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0') + '.' + String(c).padStart(2,'0');
+}
+
+function getVisualMode(rem) {
+  if (rem <= 0) return 'over';
+  if (rem <= 15) return 'near';
+  if (rem <= 60) return 'cool';
+  return 'normal';
+}
+
+function setVisualMode(mode) {
+  document.body.classList.remove('mode-idle', 'mode-normal', 'mode-cool', 'mode-near', 'mode-over');
+  document.body.classList.add('mode-' + mode);
+}
+
+function fireAlert(alert) {
+  if (firedAlerts.has(alert.offset)) return;
+  firedAlerts.add(alert.offset);
+  sendNotification(alert.ntTitle, alert.ntBody);
+  playBeep(alert.type);
+  addAlertUI(alert.label, alert.type);
+}
+
+function addAlertUI(label, type) {
+  const log = $('alertLog');
+  const t = new Date().toLocaleTimeString();
+  const div = document.createElement('div');
+  div.className = 'alert-item alert-' + type;
+  div.innerHTML = `<span>${label}</span><span class="time">${t}</span>`;
+  log.insertBefore(div, log.firstChild);
+}
+
+// Schedule alerts with setTimeout (more reliable in background than rAF)
+function scheduleAlerts() {
+  clearScheduledAlerts();
+  const now = Date.now();
+  ALERTS.forEach(alert => {
+    const fireAtMs = startTime + (targetSec + alert.offset) * 1000;
+    const delay = fireAtMs - now;
+    if (delay > 0) {
+      scheduledTimeouts.push(setTimeout(() => fireAlert(alert), delay));
+    }
+  });
+}
+
+function clearScheduledAlerts() {
+  scheduledTimeouts.forEach(tid => clearTimeout(tid));
+  scheduledTimeouts = [];
+}
+
+// UI tick — rAF for smooth display; alerts are setTimeout-driven
+function tick() {
+  if (!startTime || phase !== 'running') return;
+  const now = Date.now();
+  const elapsedMs = now - startTime;
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const rem = targetSec - elapsedSec;
+
+  $('ringTime').textContent = fmtTime(rem);
+  $('ringElapsed').textContent = '已用 ' + fmtElapsed(elapsedMs);
+
+  const circ = 2 * Math.PI * 140;
+  const progress = Math.min(elapsedMs / 1000 / targetSec, 1);
+  $('ringFg').setAttribute('stroke-dashoffset', circ * (1 - progress));
+
+  const mode = getVisualMode(rem);
+  const ringState = mode === 'over' ? 'state-over' : mode === 'near' ? 'state-near' : mode === 'cool' ? 'state-cool' : 'state-normal';
+  $('ringContainer').className = 'ring-container ' + ringState;
+  $('ringLabel').textContent = mode === 'over' ? '已超时' : mode === 'near' ? '即将结束' : mode === 'cool' ? '进入收尾' : '剩余时间';
+  $('ringTime').className = 'ring-time ' + (mode === 'over' ? 'pulse' : mode === 'near' ? 'pulse-slow' : '');
+  setVisualMode(mode);
+
+  // Fallback: also check alerts in tick in case setTimeout was delayed
+  ALERTS.forEach(alert => {
+    const triggerAt = targetSec + alert.offset;
+    if (elapsedSec >= triggerAt && !firedAlerts.has(alert.offset)) {
+      fireAlert(alert);
+    }
+  });
+
+  rafId = requestAnimationFrame(tick);
+}
+
+// Re-sync when coming back from background
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && phase === 'running') {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    rafId = requestAnimationFrame(tick);
+    requestWake();
+  }
+});
+
+// ── Controls ──
+function startTimer(sec) {
+  ensureAudio();
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(p => {
+      notifGranted = (p === 'granted');
+      $('notifBar').classList.add('hidden');
+    });
+  }
+
+  targetSec = sec;
+  firedAlerts = new Set();
+  startTime = Date.now();
+  phase = 'running';
+
+  $('idleView').style.display = 'none';
+  $('timerView').style.display = 'block';
+  $('btnStop').style.display = '';
+  $('resultBox').style.display = 'none';
+  $('alertLog').innerHTML = '';
+  setVisualMode('normal');
+
+  if (!soundUnlocked && /Mobi|Android/i.test(navigator.userAgent)) {
+    $('soundBanner').classList.remove('hidden');
+  }
+
+  scheduleAlerts();
+  rafId = requestAnimationFrame(tick);
+  requestWake();
+}
+
+function stopTimer() {
+  phase = 'finished';
+  cancelAnimationFrame(rafId);
+  clearScheduledAlerts();
+  const finalMs = Date.now() - startTime;
+
+  $('btnStop').style.display = 'none';
+  $('resultBox').style.display = '';
+
+  const accentColor = (finalMs/1000 > targetSec) ? '#ff3b30' : '#34d399';
+  $('resultTime').textContent = fmtElapsed(finalMs);
+  $('resultTime').style.color = accentColor;
+
+  const diff = Math.abs(Math.floor(finalMs/1000) - targetSec);
+  $('resultNote').textContent = '目标 ' + fmtTime(targetSec) + ' · ' +
+    (finalMs/1000 <= targetSec ? '提前 ' + fmtTime(diff) + ' 完成' : '超时 ' + fmtTime(diff));
+}
+
+function resetTimer() {
+  cancelAnimationFrame(rafId);
+  clearScheduledAlerts();
+  phase = 'idle'; startTime = null;
+  setVisualMode('idle');
+  $('idleView').style.display = '';
+  $('timerView').style.display = 'none';
+  $('soundBanner').classList.add('hidden');
+}
+
+// Wake Lock
+let wakeLock = null;
+async function requestWake() {
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+
+setVisualMode('idle');
+</script>
+</body>
+</html>
